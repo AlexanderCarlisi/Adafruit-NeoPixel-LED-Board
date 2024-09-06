@@ -13,7 +13,7 @@ class Display:
     LED_MAX_VALUE = 255     # Maximum value for RGB and Brightness
 
     pixelStrip = PixelStrip(LED_ROW * LED_COLUMN, LED_PIN, LED_FREQ_HZ, LED_DMA, False, 20, LED_CHANNEL)
-    board = None
+    board = []
 
 
     def __init__(self):
@@ -32,6 +32,7 @@ class Display:
         return board_map
 
     def set_pixel_color(self, row, column, color):
+        # W does not set brightness, I don't know what it means by white color.
         self.pixelStrip.setPixelColorRGB(self.board[row][column], color.r, color.g, color.b, color.w)
 
     def show(self):

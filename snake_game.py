@@ -11,13 +11,13 @@ class Direction(Enum):
     LEFT = 2
     RIGHT = 3
 
-APPLE_COLOR = Color(255, 0, 0, 20)
+APPLE_COLOR = Color(255, 0, 0)
 APPLE_START_POSITION = (4, 25)
 
-SNAKE_COLOR = Color(0, 255, 0, 25)
+SNAKE_COLOR = Color(0, 255, 0)
 SNAKE_START_POSITION = (4, 5)
 
-BACKGROUND_COLOR = Color(0, 0, 0, 0)
+BACKGROUND_COLOR = Color(0, 0, 0)
 
 DISPLAY = Display()
 
@@ -52,7 +52,12 @@ def assign_direction(direction):
 
 # Main Loop
 while True:
-    DISPLAY.set_pixel_color(apple_position[0], apple_position[1], APPLE_COLOR) # Add new apple
+    # Display apple at initial position
+    DISPLAY.set_pixel_color(apple_position[0], apple_position[1], APPLE_COLOR)
+
+    # Fixed Update Loop
+    # If you want to be optimal, Physics(really logic in this case) should be handled here
+    # and rendering should be done in the variable update loop
     if (time.time() - last_update_time) >= update_interval_seconds:
         last_update_time = time.time()
 
@@ -78,6 +83,8 @@ while True:
             score += 1
             snake_body_positions.append(old_body_pos) # Increase length with old body position
             DISPLAY.set_pixel_color(apple_position[0], apple_position[1], BACKGROUND_COLOR) # Remove old apple
+
+            # Generate new apple at a valid random position
             validPosition = False
             while not validPosition: # This sucks, so I might store all possible positions and remove them from the list
                 apple_position = (randint(0, DISPLAY.LED_ROW - 1), randint(0, DISPLAY.LED_COLUMN - 1))
@@ -85,6 +92,7 @@ while True:
                     validPosition = True
             DISPLAY.set_pixel_color(apple_position[0], apple_position[1], APPLE_COLOR) # Add new apple
 
+        # Check for Game Over
         if snake_head_position[0] < 0 or snake_head_position[0] >= DISPLAY.LED_ROW or \
         snake_head_position[1] < 0 or snake_head_position[1] >= DISPLAY.LED_COLUMN or \
         snake_head_position in snake_body_positions:
