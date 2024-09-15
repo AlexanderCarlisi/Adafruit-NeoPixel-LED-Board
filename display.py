@@ -35,5 +35,8 @@ class Display:
         # W does not set brightness, I don't know what it means by white color.
         self.pixelStrip.setPixelColorRGB(self.board[row][column], color.r, color.g, color.b, color.w)
 
+    def get_pixel_color(self, row, column):
+        return self.pixelStrip.getPixelColorRGB(self.board[row][column])
+
     def show(self):
         self.pixelStrip.show()
