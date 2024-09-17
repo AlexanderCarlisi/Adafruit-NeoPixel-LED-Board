@@ -78,7 +78,7 @@ def blinky_algorithm(ghost, pacman):
     pacman_row, pacman_col = pacman.position
 
     # Calculate distances in each direction (Manhattan distance)
-    distances = get_manhattan_distance(ghost_row, ghost_col, pacman_row, pacman)
+    distances = get_manhattan_distance(ghost_row, ghost_col, pacman_row, pacman_col)
 
     # Filter out directions that are blocked by walls
     valid_moves = {
@@ -264,7 +264,7 @@ def assign_direction(direction):
 
 
 def get_position_data(map):
-    global PACMAN, GHOSTS, POWER_PELLETS, DOTS, CHERRY, WALLS
+    global PACMAN, GHOSTS, POWER_PELLETS, DOTS, WALLS, GHOST_RELEASE_POSITION, CHERRY_SPAWN_POSITION
 
     for row in range(Display.LED_ROW):
         for col in range(Display.LED_COLUMN):
@@ -354,7 +354,6 @@ while True:
         if cherryIsSpawned and PACMAN.position == CHERRY_SPAWN_POSITION:
             score += CHERRY_SCORE
             cherryIsSpawned = False
-            # DISPLAY.set_pixel_color(CHERRY_SPAWN_POSITION[0], CHERRY_SPAWN_POSITION[1], BACKGROUND_COLOR)
         
         # Spawn Cherry
         if not cherryIsSpawned and time.time() >= cherry_spawn_time:
