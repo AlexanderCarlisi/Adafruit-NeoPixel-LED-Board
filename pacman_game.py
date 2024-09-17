@@ -328,6 +328,7 @@ while True:
                     score += ghost.score
                     ghost.update_position(ghost.spawnPosition[0], ghost.spawnPosition[1])
                     ghost.respawnTime = time.time() + RESPAWN_TIME
+                    PACMAN.previousColor = BACKGROUND_COLOR # removes it
 
                 else:
                     print("Game Over | Score: ", score)
@@ -344,16 +345,19 @@ while True:
             pac_power_time = time.time() + POWER_TIME
             score += POWER_PELLET_SCORE
             POWER_PELLETS.remove(PACMAN.position)
+            PACMAN.previousColor = BACKGROUND_COLOR # removes it
 
         # Check for Dot
         if PACMAN.position in DOTS:
             score += DOT_SCORE
             DOTS.remove(PACMAN.position)
+            PACMAN.previousColor = BACKGROUND_COLOR # removes it
 
         # Check for Cherry
         if cherryIsSpawned and PACMAN.position == CHERRY_SPAWN_POSITION:
             score += CHERRY_SCORE
             cherryIsSpawned = False
+            PACMAN.previousColor = BACKGROUND_COLOR # removes it
         
         # Spawn Cherry
         if not cherryIsSpawned and time.time() >= cherry_spawn_time:
