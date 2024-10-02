@@ -1,4 +1,5 @@
-from rpi_ws281x import PixelStrip
+from rpi_ws281x import PixelStrip  # type: ignore
+import math
 
 class Display:
 
@@ -12,7 +13,7 @@ class Display:
     LED_MIN_VALUE = 0       # Minimum value for RGB and Brightness
     LED_MAX_VALUE = 255     # Maximum value for RGB and Brightness
 
-    pixelStrip = PixelStrip(LED_ROW * LED_COLUMN, LED_PIN, LED_FREQ_HZ, LED_DMA, False, 20, LED_CHANNEL)
+    pixelStrip = PixelStrip(LED_ROW * LED_COLUMN, LED_PIN, LED_FREQ_HZ, LED_DMA, False, 5, LED_CHANNEL)
     board = []
 
 
@@ -30,13 +31,16 @@ class Display:
                 board_map.append(list(range(row * self.LED_COLUMN, (row + 1) * self.LED_COLUMN)))
 
         return board_map
+    
 
     def set_pixel_color(self, row, column, color):
-        # W does not set brightness, I don't know what it means by white color.
-        self.pixelStrip.setPixelColorRGB(self.board[row][column], color.r, color.g, color.b, color.w)
+        self.pixelStrip.setPixelColor(self.board[row][column], color)
+        
+
 
     def get_pixel_color(self, row, column):
         return self.pixelStrip.getPixelColorRGB(self.board[row][column])
+    
 
     def show(self):
         self.pixelStrip.show()

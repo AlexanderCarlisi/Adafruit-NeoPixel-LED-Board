@@ -294,6 +294,16 @@ GHOSTS = [
 ]
 
 
+#Initalize Colors
+for pos in WALLS:
+    DISPLAY.set_pixel_color(pos[0], pos[1], WALL_COLOR)
+for pos in POWER_PELLETS:
+    DISPLAY.set_pixel_color(pos[0], pos[1], POWER_PELLET_COLOR)
+for pos in DOTS:
+    DISPLAY.set_pixel_color(pos[0], pos[1], DOT_COLOR)
+    
+
+
 # Main Loop
 while True:
     if time.time() - last_update_time >= update_interval_seconds:
@@ -316,10 +326,10 @@ while True:
         PACMAN.update_position(row, col)
 
         # Update Ghosts
-        blinky_algorithm(GHOSTS[0], PACMAN)
-        pinky_algorithm(GHOSTS[1], PACMAN, input_direction)
-        inky_algorithm(GHOSTS[2], PACMAN, GHOSTS[0], input_direction)
-        clyde_algorithm(GHOSTS[3], PACMAN)
+        # blinky_algorithm(GHOSTS[0], PACMAN)
+        # pinky_algorithm(GHOSTS[1], PACMAN, input_direction)
+        # inky_algorithm(GHOSTS[2], PACMAN, GHOSTS[0], input_direction)
+        # sclyde_algorithm(GHOSTS[3], PACMAN)
 
         # Check for collision
         for ghost in GHOSTS:

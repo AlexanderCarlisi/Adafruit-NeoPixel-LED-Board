@@ -1,5 +1,5 @@
 from display import Display
-from rpi_ws281x import Color
+from rpi_ws281x import Color # type: ignore
 from random import randint
 from enum import Enum
 import time
