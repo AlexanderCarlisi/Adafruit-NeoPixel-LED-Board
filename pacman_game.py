@@ -56,7 +56,11 @@ class Entity:
 
     def render(self, DISPLAY):
         alpha = (time.time() - self.lastMoveTime) / self.speedSeconds
-        DISPLAY.interpolate(alpha, self.previousPosition, self.currentPosition, self.color)
+
+        if self.currentPosition.equals(self.previousPosition):
+            DISPLAY.set_pixel_color(self.currentPosition, self.color)
+        else:
+            DISPLAY.interpolate(alpha, self.previousPosition, self.currentPosition, self.color)
 
     @property
     def isDead(self):

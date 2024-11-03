@@ -91,8 +91,10 @@ class Display:
     #     return Color(0, 0, 0)
     
 
-    # Interpolates the LED Color between 2 points,
-    # this is for showing movement across LEDs.
+    # Interpolates the LED Color between 2 points, this is for showing 
+    # movement across LEDs. If you interpolate onto the same Position 
+    # it will NOT display colors properly.
+    # ---
     # alpha = accumulator / fixed_update
     # pixelPos1 = previousPosition
     # pixelPos2 = newPosition
