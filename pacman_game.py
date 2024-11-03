@@ -13,112 +13,319 @@ if (args.debug == "y"):
 else:
     from display import *
 
-DISPLAY = Display()
+
+# Input Listeners
+class Direction(Enum):
+    UP = Pose(-1, 0)
+    DOWN = Pose(1, 0)
+    LEFT = Pose(0, -1)
+    RIGHT = Pose(0, 1)
+
+input_direction = Direction.RIGHT # Global inputDirection for Pacman
+# Technically shouldn't be setup like this, it really should be in the
+# game loop, but I know this works, and don't feel like changing it.
+keyboard.add_hotkey('w', lambda: assign_direction(Direction.UP))
+keyboard.add_hotkey('s', lambda: assign_direction(Direction.DOWN))
+keyboard.add_hotkey('a', lambda: assign_direction(Direction.LEFT))
+keyboard.add_hotkey('d', lambda: assign_direction(Direction.RIGHT))
+def assign_direction(direction):
+    global input_direction
+    input_direction = direction
+
+
+# Pacman, and Ghosts. Handles basic logic and rendering.
+# Additional logic seperate for Pacman and Ghosts can be found in their respective subclasses.
+class Entity:
+    def __init__(self, color, startingPose, speedSeconds):
+        self.color = color
+        self.currentPosition = startingPose.clone()
+        self.previousPosition = startingPose.clone()
+        self.speedSeconds = speedSeconds
+        self.spawnPoint = startingPose.clone()
+        self.lastMoveTime = 0
+        self.alphaAccumulator = 0
+        self.respawnEndTime = 0
+
+    def move(self, direction, WALLS):
+        if not self.isDead and \
+         is_valid_move(WALLS, Pose(self.currentPosition.row + direction.row, self.currentPosition.col + direction.col)) \
+         and time.time() - self.lastMoveTime >= self.speedSeconds:
+            self.lastMoveTime = time.time()
+            self.previousPosition = self.currentPosition.clone()
+            self.currentPosition.add(direction.clone())
+
+    def render(self, DISPLAY):
+        alpha = (time.time() - self.lastMoveTime) / self.speedSeconds
+        DISPLAY.interpolate(alpha, self.previousPosition, self.currentPosition, self.color)
+
+    @property
+    def isDead(self):
+        return self.respawnEndTime > time.time()
+
+
+# Pacman subclass of Entity, handles additional logic like eating.
+class Pacman(Entity):
+    def __init__(self, color, startingPose, speedSeconds):
+        super().__init__(color, startingPose, speedSeconds)
+        self.score = 0
+        self.powerEndTime = 0
+        self.lives = 3
+    
+    @property
+    def isPowered(self):
+        return time.time() <= self.powerEndTime
+    
+    # Checks if new position is already populated, this should be called after super.move()
+    # Handles logic for hitting ghosts, and eating.
+    def checkCollision(self, game):
+        ghosts = (game.blinky, game.inky, game.pinky, game.clyde)
+        for pellet in game.POWER_PELLETS:
+            if self.currentPosition.equals(pellet):
+                self.powerEndTime = time.time() + game.POWER_DURATION_SECONDS
+                self.score += game.POWER_PELLET_SCORE
+                game.POWER_PELLETS.remove(pellet)
+
+        for dot in game.DOTS:
+            if self.currentPosition.equals(dot):
+                self.score += game.DOT_SCORE
+                game.DOTS.remove(dot)
+
+        for ghost in ghosts:
+            if self.currentPosition.equals(ghost.currentPosition):
+                if self.isPowered:
+                    ghost.respawnEndTime = time.time() + game.GHOST_RESPAWN_TIME
+                    ghost.currentPosition = ghost.spawnPoint
+                    self.score += game.GHOST_SCORE
+
+                else:
+                    self.respawnEndTime = time.time() + game.PACMAN_RESPAWN_TIME
+                    self.currentPosition = self.spawnPoint
+                    self.lives -= 1
+        
+
+# Ghost subclass of entity
+class Ghost(Entity):
+    def __init__(self, color, startingPose, speedSeconds):
+        super().__init__(color, startingPose, speedSeconds)
+        self.originalColor = Color(color.r, color.g, color.b)
+        self.BLINK_SECONDS = 1 # Interval to change color when pacman is powered
+        self.blink = False # Flips to being white and blue
+        self.blinkEndTime = 0 # When to change colors
+
+    def changeColor(self, pacman, blue, white):
+        if pacman.isPowered:
+            # Change color
+            if time.time() > self.blinkEndTime:
+                self.blinkEndTime = time.time() + self.BLINK_SECONDS
+                if self.blink:
+                    self.color = white
+                else:
+                    self.color = blue
+                self.blink = not self.blink
+        else:
+            self.color = self.originalColor
+
+
+# Game Setup
+class Game:
+    DISPLAY = Display()
+
+    # Main Loop
+    FIXED_UPDATE_RATE = 1.0 / 24.0 # 24 updates per second for logic; rendering is variable
+
+    # Colors
+    PACMAN_COLOR = Color(255, 255, 0)
+    BLINKY_COLOR = Color(255, 0, 0)
+    INKY_COLOR = Color(0, 255, 255)
+    PINKY_COLOR = Color(255, 0, 255)
+    CLYDE_COLOR = Color(255, 128, 0)
+    WALL_COLOR = Color(0, 0, 255)
+    DOT_COLOR = Color(253, 255, 138)
+    POWER_PELLET_COLOR = Color(255, 255, 255)
+    GHOST_SCARED_BLUE = Color(0, 170, 255)
+    GHOST_SCARED_WHITE = Color(186, 232, 255)
+
+    # Move speeds: 1 LED per time given in seconds
+    PACMAN_MOVE_SPEED = 0.5
+    BLINKY_MOVE_SPEED = 0.7
+    INKY_MOVE_SPEED = 0.7
+    PINKY_MOVE_SPEED = 0.7
+    CLYDE_MOVE_SPEED = 0.7
+
+    # Scores
+    DOT_SCORE = 10
+    POWER_PELLET_SCORE = 50
+    GHOST_SCORE = 100
+    CHERRY_SCORE = 250
+
+    POWER_DURATION_SECONDS = 5
+    GHOST_RESPAWN_TIME = 5
+    PACMAN_RESPAWN_TIME = 3
+
+    def __init__(self):
+        self.previous_time = time.time()
+        self.accumulator = 0
+        self.GHOST_SPAWN_POSITIONS = list()
+        self.WALLS = list()
+        self.DOTS = list()
+        self.POWER_PELLETS = list()
+
+        self.get_position_data(open("pacmanMap.txt", "r").read().splitlines())
+        self.pacman = Pacman(self.PACMAN_COLOR, self.PACMAN_SPAWN, self.PACMAN_MOVE_SPEED)
+        self.blinky = Ghost(self.BLINKY_COLOR, self.GHOST_SPAWN_POSITIONS[0], self.BLINKY_MOVE_SPEED)
+        self.inky = Ghost(self.INKY_COLOR, self.GHOST_SPAWN_POSITIONS[1], self.INKY_MOVE_SPEED)
+        self.pinky = Ghost(self.PINKY_COLOR, self.GHOST_SPAWN_POSITIONS[2], self.PINKY_MOVE_SPEED)
+        self.clyde = Ghost(self.CLYDE_COLOR, self.GHOST_SPAWN_POSITIONS[3], self.CLYDE_MOVE_SPEED)
+        
+
+    def start(self):
+        # Initialize unchanging leds
+        for pose in self.WALLS:
+            self.DISPLAY.set_pixel_color(pose, self.WALL_COLOR)
+
+        # Main Loop
+        while not self.isFinished:
+            self.tick()
+            
+    def update(self):
+        global input_direction
+        # Update Ghost Positions
+        #self.blinky.move(blinky_algorithm())
+        #self.inky.move(inky_algorithm())
+        # self.pinky.move(pinky_algorithm())
+        # self.clyde.move(clyde_algorithm())
+
+        # Update Pacman position
+        self.pacman.move(input_direction.value, self.WALLS)
+        self.pacman.checkCollision(self)
+
+        # Update Ghost Colors
+        self.blinky.changeColor(self.pacman, self.GHOST_SCARED_BLUE, self.GHOST_SCARED_WHITE)
+        self.inky.changeColor(self.pacman, self.GHOST_SCARED_BLUE, self.GHOST_SCARED_WHITE)
+        self.pinky.changeColor(self.pacman, self.GHOST_SCARED_BLUE, self.GHOST_SCARED_WHITE)
+        self.clyde.changeColor(self.pacman, self.GHOST_SCARED_BLUE, self.GHOST_SCARED_WHITE)
+        # print(self.clyde.color.r, self.clyde.color.g, self.clyde.color.b)
+
+    def render(self):
+        self.DISPLAY.clear()
+        for pose in self.DOTS:
+            self.DISPLAY.set_pixel_color(pose, self.DOT_COLOR)
+        for pose in self.POWER_PELLETS:
+            self.DISPLAY.set_pixel_color(pose, self.POWER_PELLET_COLOR)
+        self.pacman.render(self.DISPLAY)
+        self.blinky.render(self.DISPLAY)
+        self.inky.render(self.DISPLAY)
+        self.pinky.render(self.DISPLAY)
+        self.clyde.render(self.DISPLAY)
+        self.DISPLAY.show()
+
+    def tick(self):
+        currentTime = time.time()
+        frameTime = currentTime - self.previous_time
+        self.previous_time = currentTime
+        self.accumulator += frameTime
+
+        # Fixed Update (Game Logic)
+        while self.accumulator >= self.FIXED_UPDATE_RATE:
+            self.update()
+            self.accumulator -= self.FIXED_UPDATE_RATE
+
+        # Variable Update
+        self.render()
+
+    @property
+    def isFinished(self):
+        return False
+
+    def get_position_data(self, map):
+        for row in range(LED_ROW):
+            for col in range(LED_COLUMN):
+                if map[row][col] == 'P':
+                    self.PACMAN_SPAWN = Pose(row, col)
+                elif map[row][col] == 'W':
+                    self.GHOST_SPAWN_POSITIONS.append(Pose(row, col))
+                elif map[row][col] == 'X':
+                    self.WALLS.append(Pose(row, col))
+                elif map[row][col] == 'D':
+                    self.DOTS.append(Pose(row, col))
+                elif map[row][col] == 'C':
+                    self.CHERRY_SPAWN_POSITION = Pose(row, col)
+                elif map[row][col] == 'O':
+                    self.POWER_PELLETS.append(Pose(row, col))
 
 
 
+#
+# Ghost Algorithms
+#
 
-# def is_valid_move(row, col, direction):
-#     # Check if the move is valid (not into a wall)
-#     if direction == Direction.UP:
-#         return (row - 1, col) not in WALLS
-#     elif direction == Direction.DOWN:
-#         return (row + 1, col) not in WALLS
-#     elif direction == Direction.LEFT:
-#         return (row, col - 1) not in WALLS
-#     elif direction == Direction.RIGHT:
-#         return (row, col + 1) not in WALLS
-#     return False
+# Check if the move is valid (not into a wall)
+def is_valid_move(WALLS, pose):
+    for wall in WALLS:
+        if pose.equals(wall):
+            return False
+    return True
 
-
-# def get_manhattan_distance(row1, col1, row2, col2):
-#     return {
-#         Direction.UP: abs(row1 - 1 - row2) + abs(col1 - col2),
-#         Direction.DOWN: abs(row1 + 1 - row2) + abs(col1 - col2),
-#         Direction.LEFT: abs(row1 - row2) + abs(col1 - 1 - col2),
-#         Direction.RIGHT: abs(row1 - row2) + abs(col1 + 1 - col2)
-#     }
+def get_manhattan_distance(pose1, pose2):
+    return {
+        Direction.UP: abs(pose1.row - 1 - pose2.row) + abs(pose1.col - pose2.col),
+        Direction.DOWN: abs(pose1.row + 1 - pose2.row) + abs(pose1.col - pose2.col),
+        Direction.LEFT: abs(pose1.row - pose2.row) + abs(pose1.col - 1 - pose2.col),
+        Direction.RIGHT: abs(pose1.row - pose2.row) + abs(pose1.col + 1 - pose2.col)
+    }
 
 
+# Calculate the target position based on Pacman's current position
+# Returns Pose to move Blinky by
+def blinky_algorithm(ghost, pacman, WALLS):
+    # Calculate distances in each direction (Manhattan distance)
+    distances = get_manhattan_distance(ghost.currentPosition, pacman.currentPosition)
 
-# # Calculate the target position based on Pacman's current position
-# def blinky_algorithm(ghost, pacman):
-#     ghost_row, ghost_col = ghost.position
-#     pacman_row, pacman_col = pacman.position
+    # Filter out directions that are blocked by walls
+    valid_moves = {
+        direction: dist for direction, dist in distances.items() if is_valid_move(WALLS, ghost.currentPosition.clone().add(direction))
+    }
 
-#     # Calculate distances in each direction (Manhattan distance)
-#     distances = get_manhattan_distance(ghost_row, ghost_col, pacman_row, pacman_col)
-
-#     # Filter out directions that are blocked by walls
-#     valid_moves = {
-#         direction: dist for direction, dist in distances.items() if is_valid_move(ghost_row, ghost_col, direction)
-#     }
-
-#     # Get the direction with the minimum distance
-#     if valid_moves:
-#         best_direction = min(valid_moves, key=valid_moves.get)
-
-#         # Update ghost position based on the chosen direction
-#         if best_direction == Direction.UP:
-#             ghost_row -= 1
-#         elif best_direction == Direction.DOWN:
-#             ghost_row += 1
-#         elif best_direction == Direction.LEFT:
-#             ghost_col -= 1
-#         elif best_direction == Direction.RIGHT:
-#             ghost_col += 1
-#         ghost.update_position(ghost_row, ghost_col)
+    # Get the direction with the minimum distance
+    if valid_moves:
+        best_direction = min(valid_moves, key=valid_moves.get)
+        return best_direction.value
+    
+    print("BLINKY Error: No valid moves")
+    return Pose(0, 0)
 
 
-# # Calculate the target position two tiles ahead of Pacman and then double the vector from Blinky to the target
-# def inky_algorithm(inky, pacman, blinky, input_direction):
-#     # Step 1: Find the position two tiles ahead of Pac-Man in his current direction
-#     pac_row, pac_col = pacman.position
-#     target_row, target_col = pac_row, pac_col
+# Calculate the target position two tiles ahead of Pacman and then double the vector from Blinky to the target
+def inky_algorithm(inky, pacman, blinky, input_direction, WALLS):
+    # Step 1: Find the position two tiles ahead of Pac-Man in his current direction
+    pacPose = pacman.currentPosition
+    targetPose = pacPose.clone()
 
-#     if input_direction == Direction.UP:
-#         target_row -= 2
-#     elif input_direction == Direction.DOWN:
-#         target_row += 2
-#     elif input_direction == Direction.LEFT:
-#         target_col -= 2
-#     elif input_direction == Direction.RIGHT:
-#         target_col += 2
+    targetPose.add(input_direction.clone().mult(2))
 
-#     # Step 2: Calculate the vector from Blinky to the target
-#     blinky_row, blinky_col = blinky.position
-#     vector_row = target_row - blinky_row
-#     vector_col = target_col - blinky_col
+    # Step 2: Calculate the vector from Blinky to the target
+    vector_row = targetPose.row - blinky.currentPosition.row
+    vector_col = targetPose.col - blinky.currentPosition.col
 
-#     # Step 3: Double the vector to get Inky's target position
-#     inky_target_row = blinky_row + 2 * vector_row
-#     inky_target_col = blinky_col + 2 * vector_col
+    # Step 3: Double the vector to get Inky's target position
+    targetPose = blinky.currentPosition.clone()
+    targetPose.add(Pose(2 * vector_row, 2 * vector_col))
 
-#     # Step 4: Move Inky towards this target position using Manhattan distance
-#     inky_row, inky_col = inky.position
-#     distances = get_manhattan_distance(inky_row, inky_col, inky_target_row, inky_target_col)
+    # Step 4: Move Inky towards this target position using Manhattan distance
+    distances = get_manhattan_distance(inky.currentPosition, targetPose)
 
-#     # Filter out directions that are blocked by walls
-#     valid_moves = {
-#         direction: dist for direction, dist in distances.items() if is_valid_move(inky_row, inky_col, direction)
-#     }
+    # Filter out directions that are blocked by walls
+    valid_moves = {
+        direction: dist for direction, dist in distances.items() if is_valid_move(WALLS, inky.currentPosition.clone().add(direction))
+    }
 
-#     # Get the direction with the minimum distance
-#     if valid_moves:
-#         best_direction = min(valid_moves, key=valid_moves.get)
-
-#         # Update Inky's position based on the chosen direction
-#         if best_direction == Direction.UP:
-#             inky_row -= 1
-#         elif best_direction == Direction.DOWN:
-#             inky_row += 1
-#         elif best_direction == Direction.LEFT:
-#             inky_col -= 1
-#         elif best_direction == Direction.RIGHT:
-#             inky_col += 1
-
-#         inky.update_position(inky_row, inky_col)
-
+    # Get the direction with the minimum distance
+    if valid_moves:
+        best_direction = min(valid_moves, key=valid_moves.get)
+        return best_direction.value
+    
+    print("INKY Error: No valid moves")
+    return Pose(0, 0)
 
 
 # # Calculate the target position four tiles ahead of Pacman
@@ -202,95 +409,6 @@ DISPLAY = Display()
 #         clyde.update_position(clyde_row, clyde_col)
 
 
-# Game Information
-previous_time = time.time()
-FIXED_UPDATE_RATE = 1.0 / 24.0 # 4 updates per second
-accumulator = 0
-
-
-# Input Listeners
-class Direction(Enum):
-    UP = (0, 1)
-    DOWN = (0, -1)
-    LEFT = (-1, 0)
-    RIGHT = (1, 0)
-
-input_direction = Direction.UP
-keyboard.add_hotkey('w', lambda: assign_direction(Direction.UP))
-keyboard.add_hotkey('s', lambda: assign_direction(Direction.DOWN))
-keyboard.add_hotkey('a', lambda: assign_direction(Direction.LEFT))
-keyboard.add_hotkey('d', lambda: assign_direction(Direction.RIGHT))
-
-def assign_direction(direction):
-    global input_direction
-    input_direction = direction
-
-
-# def get_position_data(map):
-#     global PACMAN, GHOSTS, POWER_PELLETS, DOTS, WALLS, GHOST_RELEASE_POSITION, CHERRY_SPAWN_POSITION
-
-#     for row in range(Display.LED_ROW):
-#         for col in range(Display.LED_COLUMN):
-#             if map[row][col] == 'P':
-#                 PACMAN = Entity((row, col), Color(255, 255, 0), 0)
-#             elif map[row][col] == 'W':
-#                 GHOST_WAITING_POSITIONS.append((row, col))
-#             elif map[row][col] == 'R':
-#                 GHOST_RELEASE_POSITION = (row, col)
-#             elif map[row][col] == 'X':
-#                 WALLS.append((row, col))
-#             elif map[row][col] == 'D':
-#                 DOTS.append((row, col))
-#             elif map[row][col] == 'C':
-#                 CHERRY_SPAWN_POSITION = (row, col)
-#             elif map[row][col] == 'O':
-#                 POWER_PELLETS.append((row, col))
-
-
-
-#get_position_data(open("pacmanMap.txt", "r").read().splitlines())
-
-
-class Pose:
-    def __init__(self, row, col):
-        self.row = row
-        self.col = col
-
-
-class Entity:
-    def __init__(self, color, startingPos, moveTime):
-        self.color = color
-        self.currentPosition = startingPos
-        self.previousPosition = startingPos
-        self.moveTime = moveTime
-
-
-pacman = Entity(Color(255, 255, 0), Pose(0, 0))
-def testLogic():
-    global pacman
-    pacman.previousPosition = pacman.currentPosition
-    pacman.currentPosition.col += 1
-
-
-def game_tick():
-    global previous_time, accumulator
-    currentTime = time.time()
-    frameTime = currentTime - previous_time
-    previous_time = currentTime
-    accumulator += frameTime
-
-    # Fixed Update (Game Logic)
-    while accumulator >= FIXED_UPDATE_RATE:
-        # Update Logic
-        testLogic()
-        accumulator -= FIXED_UPDATE_RATE
-
-    # Variable Update
-    alpha = accumulator / FIXED_UPDATE_RATE
-    print("<<acc \n" + str(alpha))
-    # render -> alpha
-
-
 # Main Loop
-while True:
-    game_tick()
+game = Game()
+game.start()
