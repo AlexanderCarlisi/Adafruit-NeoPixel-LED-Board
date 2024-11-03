@@ -150,11 +150,11 @@ class Game:
     GHOST_SCARED_WHITE = Color(186, 232, 255)
 
     # Move speeds: 1 LED per time given in seconds
-    PACMAN_MOVE_SPEED = 0.5
-    BLINKY_MOVE_SPEED = 0.7
-    INKY_MOVE_SPEED = 0.7
-    PINKY_MOVE_SPEED = 0.7
-    CLYDE_MOVE_SPEED = 0.7
+    PACMAN_MOVE_SPEED = 0.25
+    BLINKY_MOVE_SPEED = 0.5
+    INKY_MOVE_SPEED = 0.5
+    PINKY_MOVE_SPEED = 0.5
+    CLYDE_MOVE_SPEED = 0.5
 
     # Scores
     DOT_SCORE = 10
@@ -162,7 +162,7 @@ class Game:
     GHOST_SCORE = 100
     CHERRY_SCORE = 250
 
-    POWER_DURATION_SECONDS = 5
+    POWER_DURATION_SECONDS = 8
     GHOST_RESPAWN_TIME = 5
     PACMAN_RESPAWN_TIME = 3
 
@@ -194,8 +194,8 @@ class Game:
     def update(self):
         global input_direction
         # Update Ghost Positions
-        #self.blinky.move(blinky_algorithm())
-        #self.inky.move(inky_algorithm())
+        self.blinky.move(blinky_algorithm(self.blinky, self.pacman, self.WALLS), self.WALLS)
+        # self.inky.move(inky_algorithm())
         # self.pinky.move(pinky_algorithm())
         # self.clyde.move(clyde_algorithm())
 
@@ -208,7 +208,6 @@ class Game:
         self.inky.changeColor(self.pacman, self.GHOST_SCARED_BLUE, self.GHOST_SCARED_WHITE)
         self.pinky.changeColor(self.pacman, self.GHOST_SCARED_BLUE, self.GHOST_SCARED_WHITE)
         self.clyde.changeColor(self.pacman, self.GHOST_SCARED_BLUE, self.GHOST_SCARED_WHITE)
-        # print(self.clyde.color.r, self.clyde.color.g, self.clyde.color.b)
 
     def render(self):
         self.DISPLAY.clear()
@@ -216,11 +215,15 @@ class Game:
             self.DISPLAY.set_pixel_color(pose, self.DOT_COLOR)
         for pose in self.POWER_PELLETS:
             self.DISPLAY.set_pixel_color(pose, self.POWER_PELLET_COLOR)
-        self.pacman.render(self.DISPLAY)
+        
+        if not self.pacman.isPowered: # If not powered, then get overridden by ghosts
+            self.pacman.render(self.DISPLAY)
         self.blinky.render(self.DISPLAY)
         self.inky.render(self.DISPLAY)
         self.pinky.render(self.DISPLAY)
         self.clyde.render(self.DISPLAY)
+        if self.pacman.isPowered: # If powered, override ghosts
+            self.pacman.render(self.DISPLAY)
         self.DISPLAY.show()
 
     def tick(self):
@@ -287,7 +290,7 @@ def blinky_algorithm(ghost, pacman, WALLS):
 
     # Filter out directions that are blocked by walls
     valid_moves = {
-        direction: dist for direction, dist in distances.items() if is_valid_move(WALLS, ghost.currentPosition.clone().add(direction))
+        direction: dist for direction, dist in distances.items() if is_valid_move(WALLS, ghost.currentPosition.clone().add(direction.value))
     }
 
     # Get the direction with the minimum distance
