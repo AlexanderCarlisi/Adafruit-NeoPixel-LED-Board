@@ -30,6 +30,26 @@ def Color(r, g, b):
 def color_multiply(color, multiplier):
     return Color(color.r * multiplier, color.g * multiplier, color.b * multiplier)
 
+# Position Class, should be used instead of tuples
+class Pose:
+    def __init__(self, row, col):
+        self.row = row
+        self.col = col
+
+    def clone(self):
+        return Pose(self.row, self.col)
+    
+    def equals(self, pose):
+        return self.row == pose.row and self.col == pose.col
+    
+    def add(self, pose):
+        self.row += pose.row
+        self.col += pose.col
+
+    def mult(self, multiplier):
+        self.row *= multiplier
+        self.col *= multiplier
+
 
 class Display:
 
@@ -53,16 +73,16 @@ class Display:
         return board_map
     
 
-    def set_pixel_color(self, row, column, color):
-        if 0 <= row < LED_ROW and 0 <= column < LED_COLUMN:
-            self.pixelStrip.setPixelColor(self.board[row][column], color)
+    def set_pixel_color(self, pose, color):
+        if 0 <= pose.row < LED_ROW and 0 <= pose.col < LED_COLUMN:
+            self.pixelStrip.setPixelColor(self.board[pose.row][pose.col], color)
         
 
     # Don't call get_pixel_color, you will most likely get a different result than what you passed in
     # you're better off just storing the previous color yourself.
-    def get_pixel_color(self, row, column):
-        if 0 <= row < LED_ROW and 0 <= column < LED_COLUMN:
-            return self.pixelStrip.getPixelColorRGB(self.board[row][column])
+    # def get_pixel_color(self, row, column):
+    #     if 0 <= row < LED_ROW and 0 <= column < LED_COLUMN:
+    #         return self.pixelStrip.getPixelColorRGB(self.board[row][column])
         
 
     # Interpolates the LED Color between 2 points,
@@ -74,8 +94,8 @@ class Display:
     def interpolate(self, alpha, pixelPos1, pixelPos2, color):
         pixelColor1 = color_multiply(color, 1 - alpha)  # Fades out
         pixelColor2 = color_multiply(color, alpha)      # Fades in
-        self.set_pixel_color(pixelPos1[0], pixelPos1[1], pixelColor1)
-        self.set_pixel_color(pixelPos2[0], pixelPos2[1], pixelColor2)
+        self.set_pixel_color(pixelPos1, pixelColor1)
+        self.set_pixel_color(pixelPos2, pixelColor2)
 
 
     def show(self):
