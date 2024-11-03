@@ -48,10 +48,12 @@ class Pose:
     def add(self, pose):
         self.row += pose.row
         self.col += pose.col
+        return self.clone()
 
     def mult(self, multiplier):
         self.row *= multiplier
         self.col *= multiplier
+        return self.clone()
 
 
 class Display:
