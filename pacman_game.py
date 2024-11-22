@@ -185,7 +185,7 @@ class Game:
         self.POWER_PELLETS = list()
         self.GHOST_WALLS = list()
 
-        self.get_position_data(open("pacmanMap.txt", "r").read().splitlines())
+        self.get_position_data(open("pacmanMap_34x10.txt", "r").read().splitlines())
         self.pacman = Pacman(self.PACMAN_COLOR, self.PACMAN_SPAWN, self.PACMAN_MOVE_SPEED)
         self.blinky = Ghost(self.BLINKY_COLOR, self.GHOST_SPAWN_POSITIONS[0], self.BLINKY_MOVE_SPEED)
         self.inky = Ghost(self.INKY_COLOR, self.GHOST_SPAWN_POSITIONS[1], self.INKY_MOVE_SPEED)
