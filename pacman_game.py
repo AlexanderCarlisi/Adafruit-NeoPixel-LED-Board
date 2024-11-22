@@ -98,12 +98,12 @@ class Pacman(Entity):
             if self.currentPosition.equals(ghost.currentPosition):
                 if self.isPowered:
                     ghost.respawnEndTime = time.time() + game.GHOST_RESPAWN_TIME
-                    ghost.currentPosition = ghost.spawnPoint
+                    ghost.currentPosition = ghost.spawnPoint.clone()
                     self.score += game.GHOST_SCORE
 
                 else:
                     self.respawnEndTime = time.time() + game.PACMAN_RESPAWN_TIME
-                    self.currentPosition = self.spawnPoint
+                    self.currentPosition = self.spawnPoint.clone()
                     self.lives -= 1
         
 
@@ -151,10 +151,10 @@ class Game:
 
     # Move speeds: 1 LED per time given in seconds
     PACMAN_MOVE_SPEED = 0.25
-    BLINKY_MOVE_SPEED = 0.5
-    INKY_MOVE_SPEED = 0.5
-    PINKY_MOVE_SPEED = 0.5
-    CLYDE_MOVE_SPEED = 0.5
+    BLINKY_MOVE_SPEED = 0.34
+    INKY_MOVE_SPEED = 0.34
+    PINKY_MOVE_SPEED = 0.34
+    CLYDE_MOVE_SPEED = 0.34
 
     # Scores
     DOT_SCORE = 10
@@ -190,12 +190,15 @@ class Game:
         # Main Loop
         while not self.isFinished:
             self.tick()
+
+        print("Game Over")
+        self.DISPLAY.close() # release resources
             
     def update(self):
         global input_direction
         # Update Ghost Positions
         self.blinky.move(blinky_algorithm(self.blinky, self.pacman, self.WALLS), self.WALLS)
-        # self.inky.move(inky_algorithm())
+        # self.inky.move(inky_algorithm(self.inky, self.pacman, self.blinky, input_direction, self.WALLS), self.WALLS)
         # self.pinky.move(pinky_algorithm())
         # self.clyde.move(clyde_algorithm())
 
@@ -242,7 +245,7 @@ class Game:
 
     @property
     def isFinished(self):
-        return False
+        return self.pacman.lives <= 0 or len(self.DOTS) <= 0
 
     def get_position_data(self, map):
         for row in range(LED_ROW):
@@ -308,7 +311,7 @@ def inky_algorithm(inky, pacman, blinky, input_direction, WALLS):
     pacPose = pacman.currentPosition
     targetPose = pacPose.clone()
 
-    targetPose.add(input_direction.clone().mult(2))
+    targetPose.add(input_direction.value.clone().mult(2))
 
     # Step 2: Calculate the vector from Blinky to the target
     vector_row = targetPose.row - blinky.currentPosition.row
@@ -323,7 +326,7 @@ def inky_algorithm(inky, pacman, blinky, input_direction, WALLS):
 
     # Filter out directions that are blocked by walls
     valid_moves = {
-        direction: dist for direction, dist in distances.items() if is_valid_move(WALLS, inky.currentPosition.clone().add(direction))
+        direction: dist for direction, dist in distances.items() if is_valid_move(WALLS, inky.currentPosition.clone().add(direction.value))
     }
 
     # Get the direction with the minimum distance
