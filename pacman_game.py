@@ -87,6 +87,7 @@ class Pacman(Entity):
     # Checks if new position is already populated, this should be called after super.move()
     # Handles logic for hitting ghosts, and eating.
     def checkCollision(self, game):
+        if self.isDead: return
         ghosts = (game.blinky, game.inky, game.pinky, game.clyde)
         for pellet in game.POWER_PELLETS:
             if self.currentPosition.equals(pellet):
@@ -172,6 +173,9 @@ class Game:
     GHOST_RESPAWN_TIME = 5
     PACMAN_RESPAWN_TIME = 3
 
+    # Information Positions
+    PACMAN_LIVES_POSES = [Pose(LED_ROW-1, 0), Pose(LED_ROW-1, 1), Pose(LED_ROW-1, 2)]
+
     def __init__(self):
         self.previous_time = time.time()
         self.accumulator = 0
@@ -187,13 +191,8 @@ class Game:
         self.inky = Ghost(self.INKY_COLOR, self.GHOST_SPAWN_POSITIONS[1], self.INKY_MOVE_SPEED)
         self.pinky = Ghost(self.PINKY_COLOR, self.GHOST_SPAWN_POSITIONS[2], self.PINKY_MOVE_SPEED)
         self.clyde = Ghost(self.CLYDE_COLOR, self.GHOST_SPAWN_POSITIONS[3], self.CLYDE_MOVE_SPEED)
-        
 
     def start(self):
-        # Initialize unchanging leds
-        for pose in self.WALLS:
-            self.DISPLAY.set_pixel_color(pose, self.WALL_COLOR)
-
         # Main Loop
         while not self.isFinished:
             self.tick()
@@ -225,6 +224,10 @@ class Game:
 
     def render(self):
         self.DISPLAY.clear()
+
+        # Update Objects
+        for pose in self.WALLS:
+            self.DISPLAY.set_pixel_color(pose, self.WALL_COLOR)
         for pose in self.GHOST_WALLS:
             self.DISPLAY.set_pixel_color(pose, self.GHOST_WALL_COLOR)
         for pose in self.DOTS:
@@ -232,6 +235,7 @@ class Game:
         for pose in self.POWER_PELLETS:
             self.DISPLAY.set_pixel_color(pose, self.POWER_PELLET_COLOR)
         
+        # Update Entities
         if not self.pacman.isPowered: # If not powered, then get overwritten by ghosts
             self.pacman.render(self.DISPLAY)
         self.blinky.render(self.DISPLAY)
@@ -240,6 +244,14 @@ class Game:
         self.clyde.render(self.DISPLAY)
         if self.pacman.isPowered: # If powered, overwrite ghosts
             self.pacman.render(self.DISPLAY)
+
+        # Update Game Info
+        for x in range(0, 3):
+            if self.pacman.lives >= x+1:
+                self.DISPLAY.set_pixel_color(self.PACMAN_LIVES_POSES[x], self.PACMAN_COLOR)
+            else:
+                self.DISPLAY.set_pixel_color(self.PACMAN_LIVES_POSES[x], Color(0, 0, 0))
+
         self.DISPLAY.show()
 
     def tick(self):
@@ -415,5 +427,4 @@ def clyde_algorithm(clyde, pacman, WALLS):
 
 
 # Main Loop
-game = Game()
-game.start()
+Game().start()

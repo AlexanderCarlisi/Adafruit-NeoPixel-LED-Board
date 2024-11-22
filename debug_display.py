@@ -126,8 +126,10 @@ class Display:
 
 
     def clear(self):
+        
         for row in range(LED_ROW):
             for col in range(LED_COLUMN):
+                self.board[row][col] = (0, 0, 0)
                 pygame.draw.circle(self.screen, (0, 0, 0), self.positions[row][col], LED_RADIUS)
 
 
