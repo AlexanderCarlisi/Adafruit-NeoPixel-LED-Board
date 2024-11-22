@@ -201,6 +201,10 @@ class Game:
         # self.inky.move(inky_algorithm(self.inky, self.pacman, self.blinky, input_direction, self.WALLS), self.WALLS)
         # self.pinky.move(pinky_algorithm())
         # self.clyde.move(clyde_algorithm())
+        
+        # Check for Collison, this fixes an issue where sometimes Pacman phases through ghosts.
+        # This happens because they have different move times
+        self.pacman.checkCollision(self)
 
         # Update Pacman position
         self.pacman.move(input_direction.value, self.WALLS)
