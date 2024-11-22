@@ -198,10 +198,10 @@ class Game:
         global input_direction
         # Update Ghost Positions
         self.blinky.move(blinky_algorithm(self.blinky, self.pacman, self.WALLS), self.WALLS)
-        # self.inky.move(inky_algorithm(self.inky, self.pacman, self.blinky, input_direction, self.WALLS), self.WALLS)
-        # self.pinky.move(pinky_algorithm())
-        # self.clyde.move(clyde_algorithm())
-        
+        self.inky.move(inky_algorithm(self.inky, self.pacman, self.blinky, input_direction, self.WALLS), self.WALLS)
+        self.pinky.move(pinky_algorithm(self.pinky, self.pacman, input_direction, self.WALLS), self.WALLS)
+        self.clyde.move(clyde_algorithm(self.clyde, self.pacman, self.WALLS), self.WALLS)
+
         # Check for Collison, this fixes an issue where sometimes Pacman phases through ghosts.
         # This happens because they have different move times
         self.pacman.checkCollision(self)
@@ -342,85 +342,58 @@ def inky_algorithm(inky, pacman, blinky, input_direction, WALLS):
     return Pose(0, 0)
 
 
-# # Calculate the target position four tiles ahead of Pacman
-# def pinky_algorithm(pinky, pacman, input_direction):
-#     # Step 1: Find the position four tiles ahead of Pac-Man in his current direction
-#     pac_row, pac_col = pacman.position
-#     target_row, target_col = pac_row, pac_col
+def pinky_algorithm(pinky, pacman, input_direction, WALLS):
+    # Step 1: Find the position four tiles ahead of Pac-Man in his current direction
+    target_pose = pacman.currentPosition.clone()
+    target_pose.add(input_direction.value.clone().mult(4))
 
-#     if input_direction == Direction.UP:
-#         target_row -= 4
-#     elif input_direction == Direction.DOWN:
-#         target_row += 4
-#     elif input_direction == Direction.LEFT:
-#         target_col -= 4
-#     elif input_direction == Direction.RIGHT:
-#         target_col += 4
+    # Step 2: Calculate Manhattan distances to the target position
+    distances = get_manhattan_distance(pinky.currentPosition, target_pose)
 
-#     # Step 2: Move Pinky towards this target position using Manhattan distance
-#     pinky_row, pinky_col = pinky.position
-#     distances = get_manhattan_distance(pinky_row, pinky_col, target_row, target_col)
+    # Step 3: Filter out directions that are blocked by walls
+    valid_moves = {
+        direction: dist for direction, dist in distances.items() if is_valid_move(WALLS, pinky.currentPosition.clone().add(direction.value))
+    }
 
-#     # Filter out directions that are blocked by walls
-#     valid_moves = {
-#         direction: dist for direction, dist in distances.items() if is_valid_move(pinky_row, pinky_col, direction)
-#     }
+    # Step 4: Choose the best direction based on minimum distance
+    if valid_moves:
+        best_direction = min(valid_moves, key=valid_moves.get)
+        return best_direction.value
 
-#     # Get the direction with the minimum distance
-#     if valid_moves:
-#         best_direction = min(valid_moves, key=valid_moves.get)
-
-#         # Update Pinky's position based on the chosen direction
-#         if best_direction == Direction.UP:
-#             pinky_row -= 1
-#         elif best_direction == Direction.DOWN:
-#             pinky_row += 1
-#         elif best_direction == Direction.LEFT:
-#             pinky_col -= 1
-#         elif best_direction == Direction.RIGHT:
-#             pinky_col += 1
-
-#         pinky.update_position(pinky_row, pinky_col)
+    # If no valid moves, return a default (stationary or error) pose
+    print("PINKY Error: No valid moves")
+    return Pose(0, 0)
 
 
-# # Clyde moves towards Pac if he is more than 8 tiles away, otherwise moves towards the bottom-left corner
-# def clyde_algorithm(clyde, pacman):
-#     # Step 1: Calculate distance between Clyde and Pac-Man
-#     clyde_row, clyde_col = clyde.position
-#     pac_row, pac_col = pacman.position
-#     distance_to_pacman = abs(clyde_row - pac_row) + abs(clyde_col - pac_col)  # Manhattan distance
+def clyde_algorithm(clyde, pacman, WALLS):
+    # Step 1: Calculate the distance between Clyde and Pac-Man
+    distance_to_pacman = abs(clyde.currentPosition.row - pacman.currentPosition.row) + \
+                         abs(clyde.currentPosition.col - pacman.currentPosition.col)  # Manhattan distance
 
-#     # Step 2: Determine the target
-#     if distance_to_pacman > 8:
-#         # If Clyde is farther than 8 tiles, target Pac-Man (Chase mode)
-#         target_row, target_col = pac_row, pac_col
-#     else:
-#         # If Clyde is within 8 tiles, target the bottom-left corner (Scatter mode)
-#         target_row, target_col = Display.LED_ROW - 1, 0  # Bottom-left corner
+    # Step 2: Determine the target
+    if distance_to_pacman > 8:
+        # If Clyde is farther than 8 tiles, target Pac-Man (Chase mode)
+        target_pose = pacman.currentPosition.clone()
+    else:
+        # If Clyde is within 8 tiles, target the bottom-left corner (Scatter mode)
+        target_pose = Pose(LED_ROW - 1, 0)  # Bottom-left corner
 
-#     # Step 3: Move Clyde towards the target using Manhattan distance
-#     distances = get_manhattan_distance(clyde_row, clyde_col, target_row, target_col)
+    # Step 3: Calculate Manhattan distances to the target position
+    distances = get_manhattan_distance(clyde.currentPosition, target_pose)
 
-#     # Filter out directions that are blocked by walls
-#     valid_moves = {
-#         direction: dist for direction, dist in distances.items() if is_valid_move(clyde_row, clyde_col, direction)
-#     }
+    # Step 4: Filter out directions that are blocked by walls
+    valid_moves = {
+        direction: dist for direction, dist in distances.items() if is_valid_move(WALLS, clyde.currentPosition.clone().add(direction.value))
+    }
 
-#     # Step 4: Get the direction with the minimum distance to the target
-#     if valid_moves:
-#         best_direction = min(valid_moves, key=valid_moves.get)
+    # Step 5: Choose the best direction based on minimum distance
+    if valid_moves:
+        best_direction = min(valid_moves, key=valid_moves.get)
+        return best_direction.value
 
-#         # Update Clyde's position based on the chosen direction
-#         if best_direction == Direction.UP:
-#             clyde_row -= 1
-#         elif best_direction == Direction.DOWN:
-#             clyde_row += 1
-#         elif best_direction == Direction.LEFT:
-#             clyde_col -= 1
-#         elif best_direction == Direction.RIGHT:
-#             clyde_col += 1
-
-#         clyde.update_position(clyde_row, clyde_col)
+    # If no valid moves, return a default (stationary or error) pose
+    print("CLYDE Error: No valid moves")
+    return Pose(0, 0)
 
 
 # Main Loop
