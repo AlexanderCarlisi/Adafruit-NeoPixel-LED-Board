@@ -46,10 +46,15 @@ class Entity:
         self.alphaAccumulator = 0
         self.respawnEndTime = 0
 
-    def move(self, direction, WALLS):
-        if not self.isDead and \
-         is_valid_move(WALLS, Pose(self.currentPosition.row + direction.row, self.currentPosition.col + direction.col)) \
-         and time.time() - self.lastMoveTime >= self.speedSeconds:
+    # Ghost walls optional is for Pacman only
+    def move(self, direction, WALLS, GHOST_WALLS=None):
+        # Check if Entity can move
+        if \
+          not self.isDead and \
+          is_valid_move(WALLS, self.currentPosition.clone().add(direction)) and \
+          (GHOST_WALLS == None or (GHOST_WALLS != None and pacman_ghost_wall_check(GHOST_WALLS, self.currentPosition.clone().add(direction)))) and \
+          time.time() - self.lastMoveTime >= self.speedSeconds:
+            # Move
             self.lastMoveTime = time.time()
             self.previousPosition = self.currentPosition.clone()
             self.currentPosition.add(direction.clone())
@@ -148,6 +153,7 @@ class Game:
     POWER_PELLET_COLOR = Color(255, 255, 255)
     GHOST_SCARED_BLUE = Color(0, 170, 255)
     GHOST_SCARED_WHITE = Color(186, 232, 255)
+    GHOST_WALL_COLOR = Color(0, 96, 169)
 
     # Move speeds: 1 LED per time given in seconds
     PACMAN_MOVE_SPEED = 0.25
@@ -173,6 +179,7 @@ class Game:
         self.WALLS = list()
         self.DOTS = list()
         self.POWER_PELLETS = list()
+        self.GHOST_WALLS = list()
 
         self.get_position_data(open("pacmanMap.txt", "r").read().splitlines())
         self.pacman = Pacman(self.PACMAN_COLOR, self.PACMAN_SPAWN, self.PACMAN_MOVE_SPEED)
@@ -207,7 +214,7 @@ class Game:
         self.pacman.checkCollision(self)
 
         # Update Pacman position
-        self.pacman.move(input_direction.value, self.WALLS)
+        self.pacman.move(input_direction.value, self.WALLS, self.GHOST_WALLS)
         self.pacman.checkCollision(self)
 
         # Update Ghost Colors
@@ -218,18 +225,20 @@ class Game:
 
     def render(self):
         self.DISPLAY.clear()
+        for pose in self.GHOST_WALLS:
+            self.DISPLAY.set_pixel_color(pose, self.GHOST_WALL_COLOR)
         for pose in self.DOTS:
             self.DISPLAY.set_pixel_color(pose, self.DOT_COLOR)
         for pose in self.POWER_PELLETS:
             self.DISPLAY.set_pixel_color(pose, self.POWER_PELLET_COLOR)
         
-        if not self.pacman.isPowered: # If not powered, then get overridden by ghosts
+        if not self.pacman.isPowered: # If not powered, then get overwritten by ghosts
             self.pacman.render(self.DISPLAY)
         self.blinky.render(self.DISPLAY)
         self.inky.render(self.DISPLAY)
         self.pinky.render(self.DISPLAY)
         self.clyde.render(self.DISPLAY)
-        if self.pacman.isPowered: # If powered, override ghosts
+        if self.pacman.isPowered: # If powered, overwrite ghosts
             self.pacman.render(self.DISPLAY)
         self.DISPLAY.show()
 
@@ -244,11 +253,11 @@ class Game:
             self.update()
             self.accumulator -= self.FIXED_UPDATE_RATE
 
-        # Variable Update
+        # Variable Update (Rendering)
         self.render()
 
     @property
-    def isFinished(self):
+    def isFinished(self): # Needs to be updated to return different Values depending on End Condition
         return self.pacman.lives <= 0 or len(self.DOTS) <= 0
 
     def get_position_data(self, map):
@@ -266,6 +275,8 @@ class Game:
                     self.CHERRY_SPAWN_POSITION = Pose(row, col)
                 elif map[row][col] == 'O':
                     self.POWER_PELLETS.append(Pose(row, col))
+                elif map[row][col] == 'G':
+                    self.GHOST_WALLS.append(Pose(row, col))
 
 
 
@@ -276,6 +287,13 @@ class Game:
 # Check if the move is valid (not into a wall)
 def is_valid_move(WALLS, pose):
     for wall in WALLS:
+        if pose.equals(wall):
+            return False
+    return True
+
+# Checks if pacman is trying to enter a ghost wall.
+def pacman_ghost_wall_check(GHOST_WALLS, pose):
+    for wall in GHOST_WALLS:
         if pose.equals(wall):
             return False
     return True
