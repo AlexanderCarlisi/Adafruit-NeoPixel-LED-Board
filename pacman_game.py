@@ -88,7 +88,6 @@ class Pacman(Entity):
     # Handles logic for hitting ghosts, and eating.
     def checkCollision(self, game):
         if self.isDead: return
-        ghosts = (game.blinky, game.inky, game.pinky, game.clyde)
         for pellet in game.POWER_PELLETS:
             if self.currentPosition.equals(pellet):
                 self.powerEndTime = time.time() + game.POWER_DURATION_SECONDS
@@ -100,7 +99,7 @@ class Pacman(Entity):
                 self.score += game.DOT_SCORE
                 game.DOTS.remove(dot)
 
-        for ghost in ghosts:
+        for ghost in game.ghosts:
             if self.currentPosition.equals(ghost.currentPosition):
                 if self.isPowered:
                     ghost.respawnEndTime = time.time() + game.GHOST_RESPAWN_TIME
@@ -191,6 +190,7 @@ class Game:
         self.inky = Ghost(self.INKY_COLOR, self.GHOST_SPAWN_POSITIONS[1], self.INKY_MOVE_SPEED)
         self.pinky = Ghost(self.PINKY_COLOR, self.GHOST_SPAWN_POSITIONS[2], self.PINKY_MOVE_SPEED)
         self.clyde = Ghost(self.CLYDE_COLOR, self.GHOST_SPAWN_POSITIONS[3], self.CLYDE_MOVE_SPEED)
+        self.ghosts = (self.blinky, self.inky, self.pinky, self.clyde)
 
     def start(self):
         # Main Loop
@@ -203,10 +203,14 @@ class Game:
     def update(self):
         global input_direction
         # Update Ghost Positions
-        self.blinky.move(blinky_algorithm(self.blinky, self.pacman, self.WALLS), self.WALLS)
-        self.inky.move(inky_algorithm(self.inky, self.pacman, self.blinky, input_direction, self.WALLS), self.WALLS)
-        self.pinky.move(pinky_algorithm(self.pinky, self.pacman, input_direction, self.WALLS), self.WALLS)
-        self.clyde.move(clyde_algorithm(self.clyde, self.pacman, self.WALLS), self.WALLS)
+        if self.pacman.isPowered or self.pacman.isDead:
+            for ghost in self.ghosts:
+                ghost.move(run_away_algorithm(ghost, self.pacman, self.WALLS), self.WALLS)
+        else:
+            self.blinky.move(blinky_algorithm(self.blinky, self.pacman, self.WALLS), self.WALLS)
+            self.inky.move(inky_algorithm(self.inky, self.pacman, self.blinky, input_direction, self.WALLS), self.WALLS)
+            self.pinky.move(pinky_algorithm(self.pinky, self.pacman, input_direction, self.WALLS), self.WALLS)
+            self.clyde.move(clyde_algorithm(self.clyde, self.pacman, self.WALLS), self.WALLS)
 
         # Check for Collison, this fixes an issue where sometimes Pacman phases through ghosts.
         # This happens because they have different move times
@@ -423,6 +427,25 @@ def clyde_algorithm(clyde, pacman, WALLS):
 
     # If no valid moves, return a default (stationary or error) pose
     print("CLYDE Error: No valid moves")
+    return Pose(0, 0)
+
+
+# Ghosts running away from Pac-Man
+def run_away_algorithm(ghost, pacman, WALLS):
+    # Calculate distances in each direction (Manhattan distance)
+    distances = get_manhattan_distance(ghost.currentPosition, pacman.currentPosition)
+
+    # Filter out directions that are blocked by walls
+    valid_moves = {
+        direction: dist for direction, dist in distances.items() if is_valid_move(WALLS, ghost.currentPosition.clone().add(direction.value))
+    }
+
+    # Get the direction with the maximum distance
+    if valid_moves:
+        best_direction = max(valid_moves, key=valid_moves.get)
+        return best_direction.value
+
+    print("Fail in run_away_algorithm")
     return Pose(0, 0)
 
 
