@@ -114,12 +114,14 @@ class Pacman(Entity):
 
 # Ghost subclass of entity
 class Ghost(Entity):
-    def __init__(self, color, startingPose, speedSeconds):
+    def __init__(self, color, startingPose, speedSeconds, scatterCorner):
         super().__init__(color, startingPose, speedSeconds)
         self.originalColor = Color(color.r, color.g, color.b)
         self.BLINK_SECONDS = 1 # Interval to change color when pacman is powered
         self.blink = False # Flips to being white and blue
         self.blinkEndTime = 0 # When to change colors
+        self.corner = scatterCorner
+        self.previousDirection = Direction.DOWN
 
     def changeColor(self, pacman, blue, white):
         if pacman.isPowered:
@@ -185,11 +187,11 @@ class Game:
         self.GHOST_WALLS = list()
 
         self.get_position_data(open("pacmanMap_34x10.txt", "r").read().splitlines())
-        self.pacman = Pacman(self.PACMAN_COLOR, self.PACMAN_SPAWN, self.PACMAN_MOVE_SPEED)
-        self.blinky = Ghost(self.BLINKY_COLOR, self.GHOST_SPAWN_POSITIONS[0], self.BLINKY_MOVE_SPEED)
-        self.inky = Ghost(self.INKY_COLOR, self.GHOST_SPAWN_POSITIONS[1], self.INKY_MOVE_SPEED)
-        self.pinky = Ghost(self.PINKY_COLOR, self.GHOST_SPAWN_POSITIONS[2], self.PINKY_MOVE_SPEED)
-        self.clyde = Ghost(self.CLYDE_COLOR, self.GHOST_SPAWN_POSITIONS[3], self.CLYDE_MOVE_SPEED)
+        self.pacman = Pacman(self.PACMAN_COLOR, self.PACMAN_SPAWN, self.PACMAN_MOVE_SPEED)                                      # There is a wall boarder, so its 1 not zero.
+        self.blinky = Ghost(self.BLINKY_COLOR, self.GHOST_SPAWN_POSITIONS[0], self.BLINKY_MOVE_SPEED, Pose(1, LED_COLUMN-1))    # Scatter: Top Right
+        self.inky = Ghost(self.INKY_COLOR, self.GHOST_SPAWN_POSITIONS[1], self.INKY_MOVE_SPEED, Pose(LED_ROW-2, LED_COLUMN-1))  # Scatter: Bottom Right (Minus 2 to account for Info Row)
+        self.pinky = Ghost(self.PINKY_COLOR, self.GHOST_SPAWN_POSITIONS[2], self.PINKY_MOVE_SPEED, Pose(1, 1))                  # Scatter: Top Left
+        self.clyde = Ghost(self.CLYDE_COLOR, self.GHOST_SPAWN_POSITIONS[3], self.CLYDE_MOVE_SPEED, Pose(LED_ROW-2, 1))          # Scatter: Bottom Left
         self.ghosts = (self.blinky, self.inky, self.pinky, self.clyde)
 
     def start(self):
@@ -205,7 +207,7 @@ class Game:
         # Update Ghost Positions
         if self.pacman.isPowered or self.pacman.isDead:
             for ghost in self.ghosts:
-                ghost.move(run_away_algorithm(ghost, self.pacman, self.WALLS), self.WALLS)
+                ghost.move(scatter_algorithm(ghost, self.WALLS), self.WALLS)
         else:
             self.blinky.move(blinky_algorithm(self.blinky, self.pacman, self.WALLS), self.WALLS)
             self.inky.move(inky_algorithm(self.inky, self.pacman, self.blinky, input_direction, self.WALLS), self.WALLS)
@@ -322,6 +324,15 @@ def get_manhattan_distance(pose1, pose2):
         Direction.RIGHT: abs(pose1.row - pose2.row) + abs(pose1.col + 1 - pose2.col)
     }
 
+inverseDirectionDictionary = {
+    Direction.UP: Direction.DOWN,
+    Direction.LEFT: Direction.RIGHT,
+    Direction.DOWN: Direction.UP,
+    Direction.RIGHT: Direction.LEFT
+}
+def get_inverse_direction(dir):
+    return inverseDirectionDictionary.get(dir)
+
 
 # Calculate the target position based on Pacman's current position
 # Returns Pose to move Blinky by
@@ -336,7 +347,9 @@ def blinky_algorithm(ghost, pacman, WALLS):
 
     # Get the direction with the minimum distance
     if valid_moves:
+        valid_moves.pop(get_inverse_direction(ghost.previousDirection), None) # Ghosts cannot do a 180
         best_direction = min(valid_moves, key=valid_moves.get)
+        ghost.previousDirection = best_direction
         return best_direction.value
     
     print("BLINKY Error: No valid moves")
@@ -369,7 +382,9 @@ def inky_algorithm(inky, pacman, blinky, input_direction, WALLS):
 
     # Get the direction with the minimum distance
     if valid_moves:
+        valid_moves.pop(get_inverse_direction(inky.previousDirection), None) # Ghosts cannot do a 180
         best_direction = min(valid_moves, key=valid_moves.get)
+        inky.previousDirection = best_direction
         return best_direction.value
     
     print("INKY Error: No valid moves")
@@ -391,7 +406,9 @@ def pinky_algorithm(pinky, pacman, input_direction, WALLS):
 
     # Step 4: Choose the best direction based on minimum distance
     if valid_moves:
+        valid_moves.pop(get_inverse_direction(pinky.previousDirection), None) # Ghosts cannot do a 180
         best_direction = min(valid_moves, key=valid_moves.get)
+        pinky.previousDirection = best_direction
         return best_direction.value
 
     # If no valid moves, return a default (stationary or error) pose
@@ -422,7 +439,9 @@ def clyde_algorithm(clyde, pacman, WALLS):
 
     # Step 5: Choose the best direction based on minimum distance
     if valid_moves:
+        valid_moves.pop(get_inverse_direction(clyde.previousDirection), None) # Ghosts cannot do a 180
         best_direction = min(valid_moves, key=valid_moves.get)
+        clyde.previousDirection = best_direction
         return best_direction.value
 
     # If no valid moves, return a default (stationary or error) pose
@@ -431,21 +450,27 @@ def clyde_algorithm(clyde, pacman, WALLS):
 
 
 # Ghosts running away from Pac-Man
-def run_away_algorithm(ghost, pacman, WALLS):
-    # Calculate distances in each direction (Manhattan distance)
-    distances = get_manhattan_distance(ghost.currentPosition, pacman.currentPosition)
+def scatter_algorithm(ghost, WALLS):
+    # Step 1: Get the target scatter corner for the ghost
+    target_pose = ghost.corner
 
-    # Filter out directions that are blocked by walls
+    # Step 2: Calculate Manhattan distances to the scatter corner
+    distances = get_manhattan_distance(ghost.currentPosition, target_pose)
+
+    # Step 3: Filter out directions that are blocked by walls
     valid_moves = {
         direction: dist for direction, dist in distances.items() if is_valid_move(WALLS, ghost.currentPosition.clone().add(direction.value))
     }
 
-    # Get the direction with the maximum distance
+    # Step 4: Choose the best direction based on minimum distance
     if valid_moves:
-        best_direction = max(valid_moves, key=valid_moves.get)
+        valid_moves.pop(get_inverse_direction(ghost.previousDirection), None)
+        best_direction = min(valid_moves, key=valid_moves.get)
+        ghost.previousDirection = best_direction
         return best_direction.value
 
-    print("Fail in run_away_algorithm")
+    # If no valid moves, return a default (stationary or error) pose
+    print(f"{ghost.name.upper()} Error: No valid moves")
     return Pose(0, 0)
 
 
