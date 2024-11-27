@@ -1,17 +1,8 @@
 from enum import Enum
 import time
 import keyboard
-import argparse
-
-
-# Check debug
-parser = argparse.ArgumentParser()
-parser.add_argument("debug", help="whether to run without or with the LED Board. Run as debug if you're not on a rasperrypi.")
-args = parser.parse_args()
-if (args.debug == "y"):
-    from debug_display import *
-else:
-    from display import *
+from display import *
+import display_text
 
 
 # Input Listeners
@@ -195,6 +186,8 @@ class Game:
         self.ghosts = (self.blinky, self.inky, self.pinky, self.clyde)
 
     def start(self):
+        startup_text_display(self)
+
         # Main Loop
         while not self.isFinished:
             self.tick()
@@ -472,6 +465,22 @@ def scatter_algorithm(ghost, WALLS):
     # If no valid moves, return a default (stationary or error) pose
     print(f"{ghost.name.upper()} Error: No valid moves")
     return Pose(0, 0)
+
+
+def startup_text_display(game):
+    fadeTime = 2
+    lastTime = time.time()
+    while not keyboard.is_pressed("enter"):
+        alpha = (time.time() - lastTime) / fadeTime
+        display_text.draw_string(game.DISPLAY, "PRESS", Pose(0, 0), Color(255, 255, 0), 1, alpha)
+        display_text.draw_string(game.DISPLAY, "ENTER", Pose(5, 0), Color(255, 255, 0), 1, alpha)
+        game.DISPLAY.show()
+        if alpha >= 1:
+            lastTime = time.time()
+
+
+def end_text_display():
+    pass
 
 
 # Main Loop
