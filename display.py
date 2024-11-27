@@ -99,8 +99,8 @@ if (args.debug == "y"):
         # movement across LEDs. If you interpolate onto the same Position 
         # it will NOT display colors properly.
         def interpolate(self, alpha, pixelPos1, pixelPos2, color):
-            pixelColor1 = color_multiply(color.tuple, 1 - alpha)  # Fades out
-            pixelColor2 = color_multiply(color.tuple, alpha)      # Fades in
+            pixelColor1 = color_multiply(color, 1 - alpha)  # Fades out
+            pixelColor2 = color_multiply(color, alpha)      # Fades in
             self.set_pixel_color(pixelPos1, pixelColor1)
             self.set_pixel_color(pixelPos2, pixelColor2)
         
