@@ -470,13 +470,17 @@ def scatter_algorithm(ghost, WALLS):
 def startup_text_display(game):
     fadeTime = 2
     lastTime = time.time()
+    invert = False
     while not keyboard.is_pressed("enter"):
         alpha = (time.time() - lastTime) / fadeTime
+        if invert:
+            alpha = 1 - alpha
         display_text.draw_string(game.DISPLAY, "PRESS", Pose(0, 0), Color(255, 255, 0), 1, alpha)
         display_text.draw_string(game.DISPLAY, "ENTER", Pose(5, 0), Color(255, 255, 0), 1, alpha)
         game.DISPLAY.show()
-        if alpha >= 1:
+        if time.time() - lastTime >= fadeTime:
             lastTime = time.time()
+            invert = not invert
 
 
 def end_text_display():
