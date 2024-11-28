@@ -133,7 +133,7 @@ class Game:
     DISPLAY = Display()
 
     # Main Loop
-    FIXED_UPDATE_RATE = 1.0 / 24.0 # 24 updates per second for logic; rendering is variable
+    FIXED_UPDATE_RATE = 1.0 / 60.0 # 24 updates per second for logic; rendering is variable
 
     # Colors
     PACMAN_COLOR = Color(255, 255, 0)
