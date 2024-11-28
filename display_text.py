@@ -1,4 +1,6 @@
 from display import *
+import keyboard
+import time
 
 TEXT_ROW = 5
 TEXT_COL = 5
@@ -25,3 +27,21 @@ def draw_string(display, string, topLeftPose, color, letterSpacing=1, alpha=1):
     for char in string:
         draw_char(display, char, pixelPose, color)
         pixelPose.col += TEXT_COL + letterSpacing
+
+
+draw_text_lastTime = time.time()
+draw_text_invert = False
+def draw_text_fade(display, text, topLeftPose, color, spacing, fadeTime):
+    """
+    Must be run in a Loop to work.
+    Has one set of Globals, two calls to this will
+    fade in and out together.
+    """
+    global draw_text_lastTime, draw_text_invert
+    alpha = (time.time() - draw_text_lastTime) / fadeTime
+    if draw_text_invert:
+        alpha = 1 - alpha
+    draw_string(display, text, topLeftPose, color, spacing, alpha)
+    if time.time() - draw_text_lastTime >= fadeTime:
+        draw_text_lastTime = time.time()
+        draw_text_invert = not draw_text_invert

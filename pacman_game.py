@@ -192,7 +192,7 @@ class Game:
         while not self.isFinished:
             self.tick()
 
-        print("Game Over")
+        end_text_display(self)
         self.DISPLAY.close() # release resources
             
     def update(self):
@@ -468,23 +468,27 @@ def scatter_algorithm(ghost, WALLS):
 
 
 def startup_text_display(game):
-    fadeTime = 2
-    lastTime = time.time()
-    invert = False
     while not keyboard.is_pressed("enter"):
-        alpha = (time.time() - lastTime) / fadeTime
-        if invert:
-            alpha = 1 - alpha
-        display_text.draw_string(game.DISPLAY, "PRESS", Pose(0, 0), Color(255, 255, 0), 1, alpha)
-        display_text.draw_string(game.DISPLAY, "ENTER", Pose(5, 0), Color(255, 255, 0), 1, alpha)
+        display_text.draw_text_fade(game.DISPLAY, "PRESS", Pose(0, 0), Color(255, 255, 0), 1, 2)
+        display_text.draw_text_fade(game.DISPLAY, "ENTER", Pose(5, 0), Color(255, 255, 0), 1, 2)
         game.DISPLAY.show()
-        if time.time() - lastTime >= fadeTime:
-            lastTime = time.time()
-            invert = not invert
 
 
-def end_text_display():
-    pass
+def end_text_display(game):
+    gameOverStartTime = time.time()
+    gameOverFadeTime = 2
+    gameOverStopTime = 2
+    game.DISPLAY.clear()
+    while time.time() - gameOverStartTime < gameOverStopTime:
+        display_text.draw_text_fade(game.DISPLAY, "GAME", Pose(0, 0), Color(255, 0, 0), 1, gameOverFadeTime)
+        display_text.draw_text_fade(game.DISPLAY, "OVER", Pose(5, 0), Color(255, 0, 0), 1, gameOverFadeTime)
+        game.DISPLAY.show()
+
+    game.DISPLAY.clear()
+    display_text.draw_string(game.DISPLAY, "SCORE", Pose(0, 0), Color(255, 255, 0), 1, 1)
+    display_text.draw_string(game.DISPLAY, str(game.pacman.score), Pose(5, 0), Color(255, 255, 255), 1, 1)
+    game.DISPLAY.show()
+    input()
 
 
 # Main Loop
