@@ -1,5 +1,4 @@
-from display import Display
-from rpi_ws281x import Color # type: ignore
+from display import *
 from random import randint
 from enum import Enum
 import time
@@ -12,10 +11,10 @@ class Direction(Enum):
     RIGHT = 3
 
 APPLE_COLOR = Color(255, 0, 0)
-APPLE_START_POSITION = (4, 25)
+APPLE_START_POSITION = Pose(4, 25)
 
 SNAKE_COLOR = Color(0, 255, 0)
-SNAKE_START_POSITION = (4, 5)
+SNAKE_START_POSITION = Pose(4, 5)
 
 BACKGROUND_COLOR = Color(0, 0, 0)
 
@@ -23,7 +22,7 @@ DISPLAY = Display()
 
 apple_position = APPLE_START_POSITION
 snake_head_position = SNAKE_START_POSITION
-snake_body_positions = [(SNAKE_START_POSITION[0], SNAKE_START_POSITION[1] - 1)] # Initialize with one body part
+snake_body_positions = [Pose(SNAKE_START_POSITION.row, SNAKE_START_POSITION.col - 1)] # Initialize with one body part
 
 input_direction = Direction.RIGHT
 previous_input_direction = Direction.RIGHT
@@ -53,7 +52,7 @@ def assign_direction(direction):
 # Main Loop
 while True:
     # Display apple at initial position
-    DISPLAY.set_pixel_color(apple_position[0], apple_position[1], APPLE_COLOR)
+    DISPLAY.set_pixel_color(apple_position, APPLE_COLOR)
 
     # Fixed Update Loop
     # If you want to be optimal, Physics(really logic in this case) should be handled here
@@ -62,48 +61,48 @@ while True:
         last_update_time = time.time()
 
         # Add old head position to body
-        previous_head_position = snake_head_position
-        snake_body_positions.insert(0, previous_head_position)
+        previous_head_position = snake_head_position.clone()
+        snake_body_positions.insert(0, previous_head_position.clone())
 
         # Update Head to new position
         if input_direction == Direction.UP:
-            snake_head_position = (snake_head_position[0] - 1, snake_head_position[1])
+            snake_head_position = Pose(snake_head_position.row - 1, snake_head_position.col)
         elif input_direction == Direction.DOWN:
-            snake_head_position = (snake_head_position[0] + 1, snake_head_position[1])
+            snake_head_position = Pose(snake_head_position.row + 1, snake_head_position.col)
         elif input_direction == Direction.LEFT:
-            snake_head_position = (snake_head_position[0], snake_head_position[1] - 1)
+            snake_head_position = Pose(snake_head_position.row, snake_head_position.col - 1)
         elif input_direction == Direction.RIGHT:
-            snake_head_position = (snake_head_position[0], snake_head_position[1] + 1)
+            snake_head_position = Pose(snake_head_position.row, snake_head_position.col + 1)
 
         # Remove last body position
         old_body_pos = snake_body_positions.pop() # old head has been added, this should never be empty here
 
         # Check Apple Collision
-        if snake_head_position == apple_position:
+        if snake_head_position.equals(apple_position):
             score += 1
-            snake_body_positions.append(old_body_pos) # Increase length with old body position
-            DISPLAY.set_pixel_color(apple_position[0], apple_position[1], BACKGROUND_COLOR) # Remove old apple
+            snake_body_positions.append(old_body_pos.clone()) # Increase length with old body position
+            DISPLAY.set_pixel_color(apple_position, BACKGROUND_COLOR) # Remove old apple
 
             # Generate new apple at a valid random position
             validPosition = False
-            while not validPosition: # This sucks, so I might store all possible positions and remove them from the list
-                apple_position = (randint(0, DISPLAY.LED_ROW - 1), randint(0, DISPLAY.LED_COLUMN - 1))
+            while not validPosition: # This sucks, so I might store all possible positions and remove them from the list (I will actually fix this soon)
+                apple_position = Pose(randint(0, LED_ROW - 1), randint(0, LED_COLUMN - 1))
                 if apple_position not in snake_body_positions and apple_position != snake_head_position:
                     validPosition = True
-            DISPLAY.set_pixel_color(apple_position[0], apple_position[1], APPLE_COLOR) # Add new apple
+            DISPLAY.set_pixel_color(apple_position, APPLE_COLOR) # Add new apple
 
         # Check for Game Over
-        if snake_head_position[0] < 0 or snake_head_position[0] >= DISPLAY.LED_ROW or \
-        snake_head_position[1] < 0 or snake_head_position[1] >= DISPLAY.LED_COLUMN or \
+        if snake_head_position.row < 0 or snake_head_position.row >= LED_ROW or \
+        snake_head_position.col < 0 or snake_head_position.col >= LED_COLUMN or \
         snake_head_position in snake_body_positions:
             print("Game Over, Score: " + str(score))
             break
 
         # Update Display
-        DISPLAY.set_pixel_color(old_body_pos[0], old_body_pos[1], BACKGROUND_COLOR)
+        DISPLAY.set_pixel_color(old_body_pos, BACKGROUND_COLOR)
         for body_pos in snake_body_positions:
-            DISPLAY.set_pixel_color(body_pos[0], body_pos[1], SNAKE_COLOR)
-        DISPLAY.set_pixel_color(snake_head_position[0], snake_head_position[1], SNAKE_COLOR)
-        DISPLAY.show()
+            DISPLAY.set_pixel_color(body_pos, SNAKE_COLOR)
+        DISPLAY.set_pixel_color(snake_head_position, SNAKE_COLOR)
 
         previous_direction = input_direction
+    DISPLAY.show()
