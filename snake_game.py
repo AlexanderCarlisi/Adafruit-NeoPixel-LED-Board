@@ -3,6 +3,7 @@ from random import randint
 from enum import Enum
 import time
 import keyboard
+import display_text
 
 class Direction(Enum):
     UP = 0
@@ -49,7 +50,33 @@ def assign_direction(direction):
         input_direction = direction
 
 
+def startup_text_display():
+    while not keyboard.is_pressed("enter"):
+        display_text.draw_text_fade(DISPLAY, "PRESS", Pose(0, 0), Color(0, 255, 150), 1, 2)
+        display_text.draw_text_fade(DISPLAY, "ENTER", Pose(5, 0), Color(0, 255, 50), 1, 2)
+        DISPLAY.show()
+    DISPLAY.clear()
+
+
+def end_text_display():
+    gameOverStartTime = time.time()
+    gameOverFadeTime = 2
+    gameOverStopTime = 2
+    DISPLAY.clear()
+    while time.time() - gameOverStartTime < gameOverStopTime:
+        display_text.draw_text_fade(DISPLAY, "GAME", Pose(0, 0), Color(255, 0, 0), 1, gameOverFadeTime)
+        display_text.draw_text_fade(DISPLAY, "OVER", Pose(5, 0), Color(255, 0, 0), 1, gameOverFadeTime)
+        DISPLAY.show()
+
+    DISPLAY.clear()
+    display_text.draw_string(DISPLAY, "SCORE", Pose(0, 0), Color(0, 255, 100), 1, 1)
+    display_text.draw_string(DISPLAY, str(score), Pose(5, 0), Color(200, 255, 255), 1, 1)
+    DISPLAY.show()
+    input()
+
+
 # Main Loop
+startup_text_display()
 while True:
     # Display apple at initial position
     DISPLAY.set_pixel_color(apple_position, APPLE_COLOR)
@@ -95,6 +122,7 @@ while True:
         if snake_head_position.row < 0 or snake_head_position.row >= LED_ROW or \
         snake_head_position.col < 0 or snake_head_position.col >= LED_COLUMN or \
         snake_head_position in snake_body_positions:
+            end_text_display()
             print("Game Over, Score: " + str(score))
             break
 
@@ -106,3 +134,5 @@ while True:
 
         previous_direction = input_direction
     DISPLAY.show()
+
+DISPLAY.close()
